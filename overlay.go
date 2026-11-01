@@ -34,9 +34,12 @@ func closeButton(onClose func()) hx.INode {
 		Attribute("stroke-width", "2").Attribute("stroke-linecap", "round").Attribute("stroke-linejoin", "round").
 		Style("width", "1rem").Style("height", "1rem").
 		Body(hx.Path().Attribute("d", "M18 6 6 18"), hx.Path().Attribute("d", "m6 6 12 12"))
-	return hx.Button().Type("button").Attribute("aria-label", "Close").
-		Style("position", "absolute").Style("top", "1rem").Style("right", "1rem").
-		OnClick(func(hx.EventContext) { onClose() }).Body(x)
+	b := hx.Button().Type("button").Attribute("aria-label", "Close").
+		Style("position", "absolute").Style("top", "1rem").Style("right", "1rem").Body(x)
+	if onClose != nil {
+		b.OnClick(func(hx.EventContext) { onClose() })
+	}
+	return b
 }
 
 func panel(sectionClass, title, description string, body, footer func() hx.INode, extra ...hx.INode) hx.INode {
@@ -69,31 +72,83 @@ func overlay(open hx.Gettable[bool], create func() (hx.INode, hx.INode)) hx.INod
 	})
 }
 
-// Dialog is a window over the page. It is in the tree while open is true; body
-// and footer (either can be nil) are built each time it opens. onClose runs
-// when the user clicks the background or the corner button.
-func Dialog(open hx.Gettable[bool], onClose func(), title, description string, body, footer func() hx.INode) hx.INode {
-	return overlay(open, func() (hx.INode, hx.INode) {
-		return backdrop(onClose), hx.El("dialog").Class("dialog").Attribute("open", "").Attribute("aria-label", title).
-			Body(panel("", title, description, body, footer, closeButton(onClose)))
+// closer is the function that closes something: onClose, or, when it is nil and
+// open is a signal, a function that sets it to false.
+func closer(open hx.Gettable[bool], onClose func()) func() {
+	if onClose != nil {
+		return onClose
+	}
+	if s, ok := open.(hx.Settable[bool]); ok {
+		return func() { s.Set(false) }
+	}
+	return nil
+}
+
+// DialogOptions is what a Dialog needs. Only Open is required.
+type DialogOptions struct {
+	// Open says if the dialog is in the tree. If it is a signal, the dialog closes
+	// itself with it (see OnClose).
+	Open               hx.Gettable[bool]
+	Title, Description string
+	// Body and Footer are built each time the dialog opens. Either can be nil.
+	Body, Footer func() hx.INode
+	// OnClose runs when the user clicks the background or the corner button. By
+	// default it sets Open to false, when Open is a signal.
+	OnClose func()
+}
+
+// Dialog is a window over the page:
+//
+//	coat.Dialog(coat.DialogOptions{Open: open, Title: "Edit profile", Body: form, Footer: buttons})
+func Dialog(o DialogOptions) hx.INode {
+	onClose := closer(o.Open, o.OnClose)
+	return overlay(o.Open, func() (hx.INode, hx.INode) {
+		return backdrop(onClose), hx.El("dialog").Class("dialog").Attribute("open", "").Attribute("aria-label", o.Title).
+			Body(panel("", o.Title, o.Description, o.Body, o.Footer, closeButton(onClose)))
 	})
+}
+
+// AlertDialogOptions is what an AlertDialog needs.
+type AlertDialogOptions struct {
+	Open               hx.Gettable[bool]
+	Title, Description string
+	// Footer has the buttons, which are what closes it.
+	Footer func() hx.INode
 }
 
 // AlertDialog is a Dialog that asks for an answer: it has no corner button and
-// the background does not close it. The footer has the buttons.
-func AlertDialog(open hx.Gettable[bool], title, description string, footer func() hx.INode) hx.INode {
-	return overlay(open, func() (hx.INode, hx.INode) {
-		return backdrop(nil), hx.El("dialog").Class("alert-dialog").Attribute("open", "").Attribute("role", "alertdialog").Attribute("aria-label", title).
-			Body(panel("", title, description, nil, footer))
+// the background does not close it.
+func AlertDialog(o AlertDialogOptions) hx.INode {
+	return overlay(o.Open, func() (hx.INode, hx.INode) {
+		return backdrop(nil), hx.El("dialog").Class("alert-dialog").Attribute("open", "").Attribute("role", "alertdialog").Attribute("aria-label", o.Title).
+			Body(panel("", o.Title, o.Description, nil, o.Footer))
 	})
 }
 
-// Drawer is a panel that comes from a side of the page; pass Top, Bottom (the
-// default), Left or Right.
-func Drawer(open hx.Gettable[bool], onClose func(), title, description string, body, footer func() hx.INode, mods ...Mod) hx.INode {
-	return overlay(open, func() (hx.INode, hx.INode) {
-		return backdrop(onClose), With(hx.El("dialog").Class("drawer").Attribute("open", "").Attribute("aria-label", title).Style("z-index", "50").
-			Body(panel("px-4", title, description, body, footer, closeButton(onClose))), mods...)
+// DrawerOptions is what a Drawer needs. Only Open is required.
+type DrawerOptions struct {
+	// Open says if the drawer is in the tree. If it is a signal, the drawer closes
+	// itself with it (see OnClose).
+	Open               hx.Gettable[bool]
+	Title, Description string
+	// Body and Footer are built each time the drawer opens. Either can be nil.
+	Body, Footer func() hx.INode
+	// OnClose runs when the user clicks the background or the corner button. By
+	// default it sets Open to false, when Open is a signal.
+	OnClose func()
+	// Mods: the side it comes from (Top, Bottom, the default, Left or Right) and anything else.
+	Mods []Mod
+}
+
+// Drawer is a panel that comes from a side of the page:
+//
+//	coat.Drawer(coat.DrawerOptions{Open: open, Title: "Filters", Mods: []coat.Mod{coat.Right}, Body: filters})
+func Drawer(o DrawerOptions) hx.INode {
+	onClose := closer(o.Open, o.OnClose)
+	return overlay(o.Open, func() (hx.INode, hx.INode) {
+		d := hx.El("dialog").Class("drawer").Attribute("open", "").Attribute("aria-label", o.Title).Style("z-index", "50").
+			Body(panel("px-4", o.Title, o.Description, o.Body, o.Footer, closeButton(onClose)))
+		return backdrop(onClose), With(d, o.Mods...)
 	})
 }
 
@@ -196,9 +251,20 @@ func matches(label, query string) bool {
 	return strings.Contains(strings.ToLower(label), strings.ToLower(strings.TrimSpace(query)))
 }
 
+// ComboboxOptions is what a Combobox needs.
+type ComboboxOptions struct {
+	// Value is the value of the chosen option ("" for none).
+	Value *hx.SignalT[string]
+	// Placeholder shows while nothing is chosen; SearchPlaceholder is in the search box.
+	Placeholder, SearchPlaceholder string
+	Options                        []Option
+	Mods                           []Mod
+}
+
 // Combobox is a SelectMenu with a search box that filters the options as the
 // user types.
-func Combobox(value *hx.SignalT[string], placeholder, searchPlaceholder string, options []Option, mods ...Mod) hx.INode {
+func Combobox(o ComboboxOptions) hx.INode {
+	value, placeholder, searchPlaceholder, options, mods := o.Value, o.Placeholder, o.SearchPlaceholder, o.Options, o.Mods
 	open := hx.Signal(false)
 	query := hx.Signal("")
 	label := hx.Span().Class("truncate")

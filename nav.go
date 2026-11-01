@@ -43,9 +43,18 @@ func tabs_(active *hx.SignalT[string], look string, tabs []Tab) hx.INode {
 	return hx.Div().Class("tabs").Body(list, panels)
 }
 
-// Sidebar is the menu at the side of an app. header and footer can be nil; put
-// SidebarGroups in groups. While open is false it is hidden on a phone.
-func Sidebar(open hx.Gettable[bool], header, footer hx.INode, groups ...hx.INode) hx.INode {
+// SidebarOptions is what a Sidebar needs.
+type SidebarOptions struct {
+	// Open says if it shows on a phone; on a wide screen it is always there.
+	Open hx.Gettable[bool]
+	// Header and Footer can be nil. Groups are SidebarGroups.
+	Header, Footer hx.INode
+	Groups         []hx.INode
+}
+
+// Sidebar is the menu at the side of an app. While Open is false it is hidden on a phone.
+func Sidebar(o SidebarOptions) hx.INode {
+	open, header, footer, groups := o.Open, o.Header, o.Footer, o.Groups
 	var parts []hx.INode
 	if header != nil {
 		parts = append(parts, hx.Header().Body(header))

@@ -22,10 +22,15 @@ import "github.com/deltegui/hxcoat"
 open := hx.Signal(false)
 coat.Stack(4,
 	coat.Button("Delete", coat.Destructive).OnClick(func(hx.EventContext) { open.Set(true) }),
-	coat.AlertDialog(open, "Are you sure?", "This cannot be undone.", func() hx.INode {
-		return hx.Noop().Body(
-			coat.Button("Cancel", coat.Outline).OnClick(func(hx.EventContext) { open.Set(false) }),
-			coat.Button("Continue").OnClick(func(hx.EventContext) { open.Set(false) }))
+	coat.AlertDialog(coat.AlertDialogOptions{
+		Open:        open,
+		Title:       "Are you sure?",
+		Description: "This cannot be undone.",
+		Footer: func() hx.INode {
+			return hx.Noop().Body(
+				coat.Button("Cancel", coat.Outline).OnClick(func(hx.EventContext) { open.Set(false) }),
+				coat.Button("Continue").OnClick(func(hx.EventContext) { open.Set(false) }))
+		},
 	}),
 )
 ```
@@ -43,6 +48,13 @@ Mods too.
 | `overlay.go` | Dialog, AlertDialog, Drawer, Popover, DropdownMenu, SelectMenu, Combobox, Command, Toaster |
 | `nav.go` | Tabs, LineTabs, Sidebar |
 | `coat.go` | the Mods (variants, sizes, sides), `With`, `BindAttr`, `BindClass`, Stack/Row/Grid |
+
+Components with many arguments take an options struct, so you name what you use and leave out the rest:
+`DialogOptions`, `AlertDialogOptions`, `DrawerOptions`, `ItemOptions`, `ComboboxOptions`, `SidebarOptions` and
+`PaginationOptions`. When `Open` (or `Page`) is a signal there is nothing to write for closing (or changing
+page): `OnClose` and `OnPage` default to setting it. Give them only to do something else, such as asking before
+closing. A `Computed` cannot be written, so with one you must give the handler. The mods of an options struct
+are a `Mods []Mod` field (`coat.DrawerOptions{Mods: []coat.Mod{coat.Right}}`).
 
 An overlay is in the tree only while its signal says so, and a click outside a
 menu closes it. Basecoat draws the dim background of a dialog with the `::backdrop`

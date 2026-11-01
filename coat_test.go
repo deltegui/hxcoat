@@ -43,7 +43,7 @@ func TestComponents(t *testing.T) {
 			return hx.Div().Body(coat.Kbd("⌘K"), coat.Empty("None", "Nothing", coat.Button("Add")))
 		}, []string{`class="kbd"`, `class="empty"`, `<h2>None</h2>`, `<section>`}},
 		{"item", func() hx.INode {
-			return coat.ItemGroup(coat.Item("Title", "Desc", coat.Avatar("", "", "A"), coat.Button("Go"), coat.Outline))
+			return coat.ItemGroup(coat.Item(coat.ItemOptions{Title: "Title", Description: "Desc", Media: coat.Avatar("", "", "A"), Actions: coat.Button("Go"), Mods: []coat.Mod{coat.Outline}}))
 		}, []string{`class="item-group"`, `class="item"`, `data-variant="outline"`, `<figure>`, `<h3>Title</h3>`, `<aside>`}},
 		{"progress", func() hx.INode { return coat.ProgressOf(num) }, []string{`class="progress"`, `role="progressbar"`, `aria-valuenow="3"`, `width:3%`}},
 		{"skeleton", func() hx.INode { return coat.Skeleton("100%", "2rem") }, []string{`class="bg-accent rounded-md skeleton"`, `height:2rem`, `width:100%`}},
@@ -54,8 +54,12 @@ func TestComponents(t *testing.T) {
 			return coat.Accordion("faq", coat.AccordionItem{Title: "One", Body: node(), Open: true}, coat.AccordionItem{Title: "Two", Body: node()})
 		}, []string{`class="accordion"`, `<details name="faq" open="">`, `<summary>One</summary>`, `<details name="faq"><summary>Two`}},
 		{"breadcrumb", func() hx.INode { return coat.Breadcrumb(coat.Crumb{"Home", "/"}, coat.Crumb{"Now", "/n"}) }, []string{`class="breadcrumb"`, `<a href="/">Home</a>`, `aria-hidden="true"`, `aria-current="page"`}},
-		{"pagination", func() hx.INode { return coat.Pagination(hx.Signal(5), hx.Signal(10), func(int) {}) }, []string{`aria-label="pagination"`, `aria-current="page"`, `…`, `Previous`, `Next`}},
-		{"pagination first", func() hx.INode { return coat.Pagination(hx.Signal(1), hx.Signal(1), func(int) {}) }, []string{`disabled=""`}},
+		{"pagination", func() hx.INode {
+			return coat.Pagination(coat.PaginationOptions{Page: hx.Signal(5), Pages: hx.Signal(10)})
+		}, []string{`aria-label="pagination"`, `aria-current="page"`, `…`, `Previous`, `Next`}},
+		{"pagination first", func() hx.INode {
+			return coat.Pagination(coat.PaginationOptions{Page: hx.Signal(1), Pages: hx.Signal(1), OnPage: func(int) {}})
+		}, []string{`disabled=""`}},
 		{"field", func() hx.INode {
 			return coat.FormField("Name", "name", coat.Input("text", text), hx.Signal([]string{"bad", "worse"}))
 		}, []string{`class="field"`, `class="label"`, `for="name"`, `id="name"`, `class="input"`, `role="alert"`, `bad · worse`}},
@@ -66,17 +70,27 @@ func TestComponents(t *testing.T) {
 		{"fieldset input group", func() hx.INode {
 			return coat.Fieldset("Account", coat.FieldSeparator("or"), coat.With(coat.InputGroup(coat.Addon(hx.Span().Text("$")), coat.Input("text", text)), coat.Vertical))
 		}, []string{`class="fieldset"`, `<legend>Account</legend>`, `class="field-separator"`, `class="input-group"`, `data-orientation="vertical"`, `data-align="start"`}},
-		{"dialog open", func() hx.INode { return coat.Dialog(flag, nop, "Edit", "Change it", node, node) }, []string{`class="dialog"`, `open=""`, `<h2>Edit</h2>`, `<p>Change it</p>`, `<section><p>x</p></section>`, `<footer>`, `aria-label="Close"`, `position:fixed`}},
-		{"dialog closed", func() hx.INode { return hx.Div().Body(coat.Dialog(closed, nop, "Edit", "", node, node)) }, []string{`<div></div>`}},
-		{"alert dialog", func() hx.INode { return coat.AlertDialog(flag, "Sure?", "No undo", node) }, []string{`class="alert-dialog"`, `role="alertdialog"`, `<h2>Sure?</h2>`}},
-		{"drawer", func() hx.INode { return coat.Drawer(flag, nop, "Menu", "", node, nil, coat.Left) }, []string{`class="drawer"`, `data-side="left"`}},
+		{"dialog open", func() hx.INode {
+			return coat.Dialog(coat.DialogOptions{Open: flag, OnClose: nop, Title: "Edit", Description: "Change it", Body: node, Footer: node})
+		}, []string{`class="dialog"`, `open=""`, `<h2>Edit</h2>`, `<p>Change it</p>`, `<section><p>x</p></section>`, `<footer>`, `aria-label="Close"`, `position:fixed`}},
+		{"dialog closed", func() hx.INode {
+			return hx.Div().Body(coat.Dialog(coat.DialogOptions{Open: closed, Title: "Edit", Body: node, Footer: node}))
+		}, []string{`<div></div>`}},
+		{"alert dialog", func() hx.INode {
+			return coat.AlertDialog(coat.AlertDialogOptions{Open: flag, Title: "Sure?", Description: "No undo", Footer: node})
+		}, []string{`class="alert-dialog"`, `role="alertdialog"`, `<h2>Sure?</h2>`}},
+		{"drawer", func() hx.INode {
+			return coat.Drawer(coat.DrawerOptions{Open: flag, Title: "Menu", Body: node, Mods: []coat.Mod{coat.Left}})
+		}, []string{`class="drawer"`, `data-side="left"`}},
 		{"dropdown open", func() hx.INode {
 			return coat.DropdownMenu(flag, coat.Button("Menu"), []hx.INode{coat.MenuHeading("Account"), coat.MenuItem("Profile", nil), coat.MenuSeparator(), coat.MenuItem("Delete", nop, coat.Destructive), coat.MenuCheckbox("Show", flag)}, coat.End)
 		}, []string{`class="dropdown-menu"`, `aria-expanded="true"`, `aria-haspopup="menu"`, `data-popover=""`, `aria-hidden="false"`, `data-align="end"`, `role="menu"`, `role="heading"`, `role="menuitem"`, `role="separator"`, `aria-checked="true"`, `position:fixed`}},
 		{"dropdown closed", func() hx.INode { return coat.DropdownMenu(off, coat.Button("Menu"), nil) }, []string{`aria-expanded="false"`, `aria-hidden="true"`}},
 		{"popover", func() hx.INode { return coat.Popover(flag, coat.Button("Info"), hx.P().Text("Hi")) }, []string{`class="popover"`, `aria-haspopup="dialog"`}},
 		{"select menu", func() hx.INode { return coat.SelectMenu(pick, "Pick", []coat.Option{{"a", "Alpha"}, {"b", "Beta"}}) }, []string{`class="select"`, `aria-haspopup="listbox"`, `>Beta<`, `role="listbox"`, `role="option"`, `aria-selected="true"`, `data-value="a"`}},
-		{"combobox", func() hx.INode { return coat.Combobox(pick, "Pick", "Search", coat.Plain("a", "b")) }, []string{`class="combobox"`, `role="combobox"`, `placeholder="Search"`, `role="option"`}},
+		{"combobox", func() hx.INode {
+			return coat.Combobox(coat.ComboboxOptions{Value: pick, Placeholder: "Pick", SearchPlaceholder: "Search", Options: coat.Plain("a", "b")})
+		}, []string{`class="combobox"`, `role="combobox"`, `placeholder="Search"`, `role="option"`}},
 		{"command", func() hx.INode {
 			return coat.Command(hx.Signal("cal"), "Type", coat.CommandGroup{"Suggestions", []coat.CommandItem{{Label: "Calendar", Shortcut: "⌘C"}, {Label: "Search"}}})
 		}, []string{`class="command"`, `role="group"`, `role="heading"`, `>Calendar<`, `data-shortcut=""`}},
@@ -86,7 +100,7 @@ func TestComponents(t *testing.T) {
 		}, []string{`class="tabs"`, `role="tablist"`, `role="tab"`, `aria-selected="true"`, `role="tabpanel"`, `PANEL-B`}},
 		{"line tabs", func() hx.INode { return coat.LineTabs(tab, coat.Tab{ID: "a", Label: "A"}) }, []string{`data-variant="line"`}},
 		{"sidebar", func() hx.INode {
-			return coat.Sidebar(flag, hx.Span().Text("Brand"), nil, coat.SidebarGroup("Main", coat.SidebarLink("Home", "/", true), coat.SidebarLink("About", "/a", false)))
+			return coat.Sidebar(coat.SidebarOptions{Open: flag, Header: hx.Span().Text("Brand"), Groups: []hx.INode{coat.SidebarGroup("Main", coat.SidebarLink("Home", "/", true), coat.SidebarLink("About", "/a", false))}})
 		}, []string{`class="sidebar"`, `aria-hidden="false"`, `data-sidebar-initialized`, `<h3>Main</h3>`, `aria-current="page"`}},
 		{"layout", func() hx.INode { return coat.Stack(4, coat.Row(2, coat.Grid(3, 2))) }, []string{`flex flex-col gap-4`, `flex flex-wrap gap-2 items-center`, `gap-2 grid grid-cols-3`}},
 	}

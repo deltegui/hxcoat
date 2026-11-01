@@ -99,22 +99,31 @@ func Empty(title, description string, actions ...hx.INode) hx.INode {
 	return e.Body(header, hx.El("section").Body(actions...))
 }
 
+// ItemOptions is what an Item needs. Only Title is required.
+type ItemOptions struct {
+	Title, Description string
+	// Media goes on the left (an Avatar, an icon) and Actions on the right (buttons).
+	Media, Actions hx.INode
+	// Mods: Outline or Muted for the look, Sm or XS for the size.
+	Mods []Mod
+}
+
 // Item is a row with an optional media on the left, a title and description,
-// and actions on the right. Use Outline or Muted for the look, and Sm or XS.
-func Item(title, description string, media, actions hx.INode, mods ...Mod) hx.INode {
+// and actions on the right.
+func Item(o ItemOptions) hx.INode {
 	var parts []hx.INode
-	if media != nil {
-		parts = append(parts, hx.El("figure").Body(media))
+	if o.Media != nil {
+		parts = append(parts, hx.El("figure").Body(o.Media))
 	}
-	text := []hx.INode{hx.H3().Text(title)}
-	if description != "" {
-		text = append(text, hx.P().Text(description))
+	text := []hx.INode{hx.H3().Text(o.Title)}
+	if o.Description != "" {
+		text = append(text, hx.P().Text(o.Description))
 	}
 	parts = append(parts, hx.El("section").BodyList(text))
-	if actions != nil {
-		parts = append(parts, hx.Aside().Body(actions))
+	if o.Actions != nil {
+		parts = append(parts, hx.Aside().Body(o.Actions))
 	}
-	return With(hx.Div().Class("item").BodyList(parts), mods...)
+	return With(hx.Div().Class("item").BodyList(parts), o.Mods...)
 }
 
 // ItemGroup groups Items; put separators (Hr) between them if you want.
@@ -229,9 +238,28 @@ func chevron() hx.INode {
 		Body(hx.Path().Attribute("d", "m9 18 6-6-6-6"))
 }
 
+// PaginationOptions is what a Pagination needs.
+type PaginationOptions struct {
+	// Page is the current page and Pages how many there are; both count from 1.
+	Page, Pages hx.Gettable[int]
+	// OnPage runs when the user chooses a page. By default it sets Page, when
+	// Page is a signal.
+	OnPage func(int)
+}
+
 // Pagination shows previous, a window of pages around the current one with the
-// first and the last, and next. page and pages count from 1.
-func Pagination(page, pages hx.Gettable[int], goTo func(int)) hx.INode {
+// first and the last, and next:
+//
+//	coat.Pagination(coat.PaginationOptions{Page: page, Pages: pages})
+func Pagination(o PaginationOptions) hx.INode {
+	page, pages, goTo := o.Page, o.Pages, o.OnPage
+	if goTo == nil {
+		if s, ok := page.(hx.Settable[int]); ok {
+			goTo = s.Set
+		} else {
+			goTo = func(int) {}
+		}
+	}
 	item := func(label string, target int, enabled bool, mods ...Mod) hx.INode {
 		b := With(hx.Button().Type("button").Class("btn").Text(label), mods...)
 		if enabled {
